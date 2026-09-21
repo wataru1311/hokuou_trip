@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>北欧5人旅 2027 しおり＆検討アプリ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 pb-24 font-sans">
+
+<header class="bg-indigo-900 text-white p-4 sticky top-0 z-50 shadow-md">
+  <div class="max-w-md mx-auto flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold tracking-wide">北欧5人旅 2027</h1>
+      <p class="text-xs text-indigo-200">2027/02/10 – 02/23 (14日間)</p>
+    </div>
+    <div class="text-right">
+      <span class="text-[10px] bg-indigo-700 px-2 py-0.5 rounded-full text-indigo-100 font-medium block mb-0.5">男子5人旅</span>
+      <span id="sync-badge" class="text-[9px] text-indigo-300">同期中...</span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-md mx-auto p-4">
+
+  <!-- タイムライン -->
+  <section id="tab-timeline" class="tab-content">
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="text-lg font-bold flex items-center gap-2"><i data-lucide="calendar"></i> 旅程・全14スケジュール</h2>
+      <button onclick="openCardModal('schedule')" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center gap-1">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> カード追加
+      </button>
+    </div>
+    <div id="timeline-list" class="space-y-6"></div>
+  </section>
+
+  <!-- 検討リスト -->
+  <section id="tab-spots" class="tab-content hidden">
+    <h2 class="text-lg font-bold mb-3 flex items-center gap-2"><i data-lucide="map-pin"></i> 行きたい場所候補（検討）</h2>
+    <form id="spot-form" class="bg-white p-4 rounded-xl shadow-sm mb-4 border border-slate-200 space-y-3">
+      <p class="text-xs font-bold text-slate-500">新しい候補を追加</p>
+      <div class="grid grid-cols-2 gap-2">
+        <input type="text" id="spot-city" placeholder="都市 (例: トロムソ)" class="p-2 border rounded text-sm w-full" required>
+        <input type="text" id="spot-title" placeholder="スポット名" class="p-2 border rounded text-sm w-full" required>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <select id="spot-category" class="p-2 border rounded text-sm w-full">
+          <option>アクティビティ</option><option>観光</option><option>グルメ</option><option>サウナ</option><option>買い物</option>
+        </select>
+        <input type="text" id="spot-memo" placeholder="メモ・URLなど" class="p-2 border rounded text-sm w-full">
+      </div>
+      <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded text-sm font-bold hover:bg-indigo-700">追加する</button>
+    </form>
+    <div id="spot-list" class="space-y-2"></div>
+  </section>
+
+  <!-- 立替計算 -->
+  <section id="tab-expenses" class="tab-content hidden">
+    <h2 class="text-lg font-bold mb-3 flex items-center gap-2"><i data-lucide="calculator"></i> 立替計算・財務管理</h2>
+    <form id="expense-form" class="bg-white p-4 rounded-xl shadow-sm mb-4 border border-slate-200 space-y-3">
+      <p class="text-xs font-bold text-slate-500">立替内容を入力</p>
+      <input type="text" id="expense-title" placeholder="支払内容" class="p-2 border rounded text-sm w-full" required>
+      <div class="grid grid-cols-2 gap-2">
+        <input type="number" id="expense-amount" placeholder="金額 (円)" class="p-2 border rounded text-sm w-full" required>
+        <select id="expense-payer" class="p-2 border rounded text-sm w-full"></select>
+      </div>
+      <div>
+        <p class="text-[10px] font-bold text-slate-400 mb-1">割り勘に参加する人</p>
+        <div id="expense-participants" class="flex flex-wrap gap-2 text-xs"></div>
+      </div>
+      <button type="submit" class="w-full bg-emerald-600 text-white py-2 rounded text-sm font-bold hover:bg-emerald-700">立替を記録する</button>
+    </form>
+    <div class="bg-slate-800 text-white p-4 rounded-xl shadow-sm mb-4">
+      <h3 class="text-xs font-bold text-slate-400 mb-2">精算結果</h3>
+      <div id="settlement-result" class="text-sm space-y-1"><p class="text-slate-400 text-xs">まだ立替記録がありません。</p></div>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+      <h3 class="text-xs font-bold text-slate-500 mb-2">支払履歴</h3>
+      <ul id="expense-list" class="divide-y text-sm"></ul>
+    </div>
+  </section>
+
+  <!-- Walica -->
+  <section id="tab-walica" class="tab-content hidden">
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center space-y-4">
+      <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto"><i data-lucide="external-link" class="w-6 h-6"></i></div>
+      <h2 class="text-lg font-bold">Walica（割り勘アプリ）</h2>
+      <p class="text-xs text-slate-600 leading-relaxed">現地の複数通貨（ユーロ/クローネ）や複雑な割り勘はWalicaの併用もおすすめです。</p>
+      <a href="https://walica.jp" target="_blank" rel="noopener noreferrer" class="inline-block bg-amber-500 text-white font-bold px-6 py-2.5 rounded-lg text-sm hover:bg-amber-600 shadow">Walicaを開く ↗</a>
+    </div>
+  </section>
+</main>
+
+<!-- カード追加/編集モーダル（タイムライン用） -->
+<div id="card-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-center border-b pb-2">
+      <h3 id="card-modal-title" class="font-bold text-base">新しいカードを追加</h3>
+      <button onclick="closeCardModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+    </div>
+    <form id="card-form" class="space-y-3">
+      <input type="hidden" id="card-id">
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">対象の日付</label>
+        <select id="card-day-idx" class="w-full p-2 border rounded text-sm" required></select>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-1">カード種別</label>
+          <select id="card-type" class="w-full p-2 border rounded text-sm" onchange="toggleFormFields()">
+            <option value="flight">✈️ 移動</option><option value="hotel">🏨 宿泊</option><option value="activity">📍 観光・予定</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-1">時間</label>
+          <input type="time" id="card-time" class="w-full p-2 border rounded text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">タイトル</label>
+        <input type="text" id="card-title" class="w-full p-2 border rounded text-sm" required>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">詳細（便名・アクセスなど）</label>
+        <input type="text" id="card-detail" class="w-full p-2 border rounded text-sm">
+      </div>
+      <div id="field-pnr">
+        <label class="text-xs font-bold text-slate-500 block mb-1">予約番号 (PNR)</label>
+        <input type="text" id="card-pnr" class="w-full p-2 border rounded text-sm">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">ステータス</label>
+        <select id="card-status" class="w-full p-2 border rounded text-sm">
+          <option value="confirmed">✓ 確定</option><option value="draft">⚠️ 仮・検討中</option>
+        </select>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="closeCardModal()" class="w-1/2 py-2 bg-slate-100 text-slate-600 rounded text-sm font-bold">キャンセル</button>
+        <button type="submit" class="w-1/2 py-2 bg-indigo-600 text-white rounded text-sm font-bold hover:bg-indigo-700">保存する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- スポット編集モーダル -->
+<div id="spot-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3">
+    <div class="flex justify-between items-center border-b pb-2">
+      <h3 class="font-bold text-base">候補を編集</h3>
+      <button onclick="closeSpotModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+    </div>
+    <form id="spot-edit-form" class="space-y-3">
+      <input type="hidden" id="spot-edit-id">
+      <input type="text" id="spot-edit-city" placeholder="都市" class="p-2 border rounded text-sm w-full" required>
+      <input type="text" id="spot-edit-title" placeholder="スポット名" class="p-2 border rounded text-sm w-full" required>
+      <select id="spot-edit-category" class="p-2 border rounded text-sm w-full">
+        <option>アクティビティ</option><option>観光</option><option>グルメ</option><option>サウナ</option><option>買い物</option>
+      </select>
+      <input type="text" id="spot-edit-memo" placeholder="メモ" class="p-2 border rounded text-sm w-full">
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="closeSpotModal()" class="w-1/2 py-2 bg-slate-100 text-slate-600 rounded text-sm font-bold">キャンセル</button>
+        <button type="submit" class="w-1/2 py-2 bg-indigo-600 text-white rounded text-sm font-bold">保存する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 採用（日付選択）モーダル -->
+<div id="adopt-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3">
+    <div class="flex justify-between items-center border-b pb-2">
+      <h3 class="font-bold text-base">タイムラインに採用</h3>
+      <button onclick="closeAdoptModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+    </div>
+    <form id="adopt-form" class="space-y-3">
+      <input type="hidden" id="adopt-id">
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">組み込む日付</label>
+        <select id="adopt-day-idx" class="w-full p-2 border rounded text-sm" required></select>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">時間</label>
+        <input type="time" id="adopt-time" class="w-full p-2 border rounded text-sm">
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="closeAdoptModal()" class="w-1/2 py-2 bg-slate-100 text-slate-600 rounded text-sm font-bold">キャンセル</button>
+        <button type="submit" class="w-1/2 py-2 bg-indigo-600 text-white rounded text-sm font-bold">採用する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg z-50">
+  <div class="max-w-md mx-auto flex justify-around p-2">
+    <button onclick="switchTab('timeline')" id="nav-timeline" class="nav-btn text-indigo-600 flex flex-col items-center gap-0.5 text-[10px] font-bold"><i data-lucide="calendar" class="w-5 h-5"></i> タイムライン</button>
+    <button onclick="switchTab('spots')" id="nav-spots" class="nav-btn text-slate-400 flex flex-col items-center gap-0.5 text-[10px] font-bold"><i data-lucide="map-pin" class="w-5 h-5"></i> 検討リスト</button>
+    <button onclick="switchTab('expenses')" id="nav-expenses" class="nav-btn text-slate-400 flex flex-col items-center gap-0.5 text-[10px] font-bold"><i data-lucide="calculator" class="w-5 h-5"></i> 立替計算</button>
+    <button onclick="switchTab('walica')" id="nav-walica" class="nav-btn text-slate-400 flex flex-col items-center gap-0.5 text-[10px] font-bold"><i data-lucide="external-link" class="w-5 h-5"></i> Walica</button>
+  </div>
+</nav>
+
+<script>
+// ==== Firebase 初期化 ====
+const firebaseConfig = {
+  apiKey: "AIzaSyA6ICjTDo-rPGJpN-ZA0L48F3_YjY2KD0o",
+  authDomain: "hokuou-trip.firebaseapp.com",
+  projectId: "hokuou-trip",
+  storageBucket: "hokuou-trip.firebasestorage.app",
+  messagingSenderId: "87063675678",
+  appId: "1:87063675678:web:4881f84b0738320ffcff0f",
+  measurementId: "G-Q2ZGMTG6ZH"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const cardsCol = db.collection('cards');
+const expensesCol = db.collection('expenses');
+
+const members = ['わたる', 'たかし', 'こうじ', 'けいすけ', 'なおと'];
+const dayLabels = [
+  "Day 1 : 2月10日 (火)","Day 2 : 2月11日 (水)","Day 3 : 2月12日 (木)","Day 4 : 2月13日 (金)",
+  "Day 5 : 2月14日 (土)","Day 6 : 2月15日 (日)","Day 7 : 2月16日 (月)","Day 8 : 2月17日 (火)",
+  "Day 9 : 2月18日 (水)","Day 10 : 2月19日 (木)","Day 11 : 2月20日 (金)","Day 12 : 2月21日 (土)",
+  "Day 13 : 2月22日 (日)","Day 14 : 2月23日 (月)"
+];
+
+let cardsCache = [];
+let expensesCache = [];
+
+// ==== 初回シード ====
+async function seedIfEmpty() {
+  const snap = await cardsCol.limit(1).get();
+  if (!snap.empty) return;
+  const seedCards = [
+    {dayIdx:0,time:'21:55',type:'flight',title:'羽田 (HND) ➔ ヘルシンキ (HEL)',detail:'便名: AY062 (21:55発-04:40+1着)',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:0,time:'15:00',type:'hotel',title:'ヘルシンキ市内ホテル',detail:'チェックイン等詳細調整中',access:'中央駅周辺予定',status:'draft',origin:'schedule'},
+    {dayIdx:1,time:'07:30',type:'flight',title:'ヘルシンキ (HEL) ➔ ロヴァニエミ (RVN)',detail:'便名: AY545',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:1,time:'16:00',type:'hotel',title:'ロヴァニエミ宿泊',detail:'コテージ / ホテル検討中',status:'draft',origin:'schedule'},
+    {dayIdx:2,time:'10:00',type:'activity',title:'ロヴァニエミ市内・サンタクロース村観光',detail:'北極線通過・トナカイソリ体験など',status:'draft',origin:'schedule'},
+    {dayIdx:2,time:'15:00',type:'hotel',title:'ロヴァニエミ 2泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
+    {dayIdx:3,time:'10:00',type:'activity',title:'ロヴァニエミ アクティビティ検討日',detail:'犬ソリ・スノーモービルなど',status:'draft',origin:'schedule'},
+    {dayIdx:3,time:'15:00',type:'hotel',title:'ロヴァニエミ 3泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
+    {dayIdx:4,time:'11:00',type:'flight',title:'ロヴァニエミ (RVN) ➔ トロムソ (TOS)',detail:'便名: AY541',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:4,time:'15:00',type:'hotel',title:'トロムソ宿泊',detail:'オーロラ観測拠点',status:'draft',origin:'schedule'},
+    {dayIdx:5,time:'19:00',type:'activity',title:'トロムソ オーロラハンティングツアー',detail:'夜間現地ツアー参加検討',status:'draft',origin:'schedule'},
+    {dayIdx:5,time:'15:00',type:'hotel',title:'トロムソ 2泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
+    {dayIdx:6,time:'08:00',type:'flight',title:'トロムソ (TOS) ➔ ベルゲン (BGO)',detail:'便名: WF623',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:6,time:'13:00',type:'flight',title:'ベルゲン ➔ ヴォス (Voss)',detail:'鉄道移動',status:'confirmed',origin:'schedule'},
+    {dayIdx:6,time:'16:00',type:'hotel',title:'ヴォス 1泊',detail:'フィヨルド観光前泊',access:'ヴォス駅徒歩圏内',status:'draft',origin:'schedule'},
+    {dayIdx:7,time:'09:00',type:'activity',title:'日中: フィヨルド観光',detail:'フェリー・バス周遊',status:'confirmed',origin:'schedule'},
+    {dayIdx:7,time:'16:00',type:'flight',title:'ヴォス ➔ オスロ (Oslo)',detail:'鉄道移動',status:'confirmed',origin:'schedule'},
+    {dayIdx:7,time:'20:00',type:'hotel',title:'オスロ宿泊',detail:'オスロ中央駅周辺',status:'draft',origin:'schedule'},
+    {dayIdx:8,time:'12:00',type:'flight',title:'オスロ (OSL) ➔ ストックホルム (ARN)',detail:'便名: SK1488',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:8,time:'15:00',type:'hotel',title:'ストックホルム宿泊',detail:'ガムラスタン周辺など',status:'draft',origin:'schedule'},
+    {dayIdx:9,time:'17:00',type:'flight',title:'ストックホルム ➔ ヘルシンキ (夕方発・夜行フェリー)',detail:'翌10:30 ヘルシンキ着予定',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:9,time:'18:00',type:'hotel',title:'船内泊 (フェリーキャビン)',detail:'翌10:30 ヘルシンキ着予定',status:'confirmed',origin:'schedule'},
+    {dayIdx:10,time:'10:30',type:'activity',title:'ヘルシンキ到着・市街散策',detail:'カフェ・サウナ巡り',status:'draft',origin:'schedule'},
+    {dayIdx:10,time:'15:00',type:'hotel',title:'ヘルシンキ宿泊',detail:'市内中心部',status:'draft',origin:'schedule'},
+    {dayIdx:11,time:'09:00',type:'activity',title:'ヘルシンキ ➔ タリン (日帰りの可能性あり・未確定)',detail:'タリンクシリヤ / エッケローライン',status:'draft',origin:'schedule'},
+    {dayIdx:11,time:'15:00',type:'hotel',title:'ヘルシンキ 2泊目',detail:'最終滞在拠点',status:'draft',origin:'schedule'},
+    {dayIdx:12,time:'17:30',type:'flight',title:'ヘルシンキ (HEL) ➔ 羽田 (HND)',detail:'便名: AY061 (帰国便)',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:13,time:'15:55',type:'activity',title:'羽田空港 到着・解散',detail:'お疲れ様でした！',status:'confirmed',origin:'schedule'},
+    {dayIdx:null,type:'activity',title:'ロウリュ (Löyly)',city:'ヘルシンキ',category:'サウナ',memo:'海に飛び込める公衆サウナ',status:'draft',origin:'spot'},
+    {dayIdx:null,type:'activity',title:'サンタクロース村',city:'ロヴァニエミ',category:'観光',memo:'北極線通過証明書がもらえる',status:'draft',origin:'spot'},
+    {dayIdx:null,type:'activity',title:'北極教会 (Arctic Cathedral)',city:'トロムソ',category:'観光',memo:'三角の印象的なデザイン',status:'draft',origin:'spot'}
+  ];
+  const batch = db.batch();
+  seedCards.forEach(c => batch.set(cardsCol.doc(), c));
+  await batch.commit();
+}
+
+// ==== リアルタイム購読 ====
+cardsCol.onSnapshot(snap => {
+  cardsCache = snap.docs.map(d => ({id: d.id, ...d.data()}));
+  renderTimeline();
+  renderSpots();
+  document.getElementById('sync-badge').textContent = '同期済み ✓';
+}, err => { document.getElementById('sync-badge').textContent = '同期エラー'; console.error(err); });
+
+expensesCol.orderBy('createdAt', 'asc').onSnapshot(snap => {
+  expensesCache = snap.docs.map(d => ({id: d.id, ...d.data()}));
+  renderExpenses();
+}, err => console.error(err));
+
+seedIfEmpty();
+
+// ==== タイムライン描画 ====
+function renderTimeline() {
+  const container = document.getElementById('timeline-list');
+  container.innerHTML = dayLabels.map((label, dayIdx) => {
+    const items = cardsCache.filter(c => c.dayIdx === dayIdx).sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+    return `
+      <div>
+        <div class="bg-indigo-900 text-white font-bold text-xs px-3 py-1.5 rounded-t-lg flex justify-between items-center">
+          <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5"></i> ${label}</span>
+          <button onclick="openCardModal('schedule', null, ${dayIdx})" class="text-[10px] bg-indigo-700 hover:bg-indigo-600 px-2 py-0.5 rounded text-indigo-100 flex items-center gap-0.5"><i data-lucide="plus-circle" class="w-3 h-3"></i> 追加</button>
+        </div>
+        <div class="bg-white rounded-b-lg rounded-tr-lg p-3 shadow-sm space-y-3 border border-slate-200">
+          ${items.length === 0 ? `<p class="text-xs text-slate-400 py-2 text-center">予定がありません。</p>` : items.map(renderItemCard).join('')}
+        </div>
+      </div>`;
+  }).join('');
+  lucide.createIcons();
+}
+
+function renderItemCard(item) {
+  const isDraft = item.status === 'draft';
+  const timeBadge = item.time ? `<span class="bg-slate-100 text-slate-600 text-[10px] font-mono px-1.5 py-0.5 rounded font-bold">${item.time}</span>` : '';
+  const badgeHtml = isDraft ? `<span class="bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded">⚠️ 仮</span>` : `<span class="bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold px-1.5 py-0.5 rounded">✓ 確定</span>`;
+  let colorClass = 'border-blue-500 bg-blue-50/40', iconName = 'plane', typeLabel = '移動';
+  if (item.type === 'hotel') { colorClass = 'border-emerald-500 bg-emerald-50/40'; iconName = 'hotel'; typeLabel = '宿泊'; }
+  else if (item.type === 'activity') { colorClass = 'border-purple-500 bg-purple-50/40'; iconName = 'map-pin'; typeLabel = '観光・予定'; }
+  return `
+    <div class="border-l-4 ${colorClass} pl-3 py-1.5 rounded-r">
+      <div class="flex justify-between items-start">
+        <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700">${timeBadge} <i data-lucide="${iconName}" class="w-3.5 h-3.5"></i> ${typeLabel}</div>
+        <div class="flex items-center gap-1">
+          ${badgeHtml}
+          <button onclick='openCardModal("schedule", ${JSON.stringify(item.id)})' class="text-slate-300 hover:text-indigo-500 p-1"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+          <button onclick="deleteCard('${item.id}')" class="text-slate-300 hover:text-rose-500 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+        </div>
+      </div>
+      <p class="font-bold text-sm mt-1">${item.title}</p>
+      ${item.detail ? `<p class="text-xs text-slate-600 mt-0.5">${item.detail}</p>` : ''}
+      ${item.pnr ? `<p class="text-[11px] text-slate-400 mt-0.5">予約番号: ${item.pnr}</p>` : ''}
+      ${item.access ? `<p class="text-[11px] text-slate-500 mt-0.5">📍 ${item.access}</p>` : ''}
+    </div>`;
+}
+
+function deleteCard(id) {
+  if (!confirm('このカードを削除してよろしいですか？')) return;
+  cardsCol.doc(id).delete();
+}
+
+// ==== カード追加/編集モーダル（タイムライン） ====
+function openCardModal(origin, id = null, presetDayIdx = 0) {
+  document.getElementById('card-form').reset();
+  const daySelect = document.getElementById('card-day-idx');
+  daySelect.innerHTML = dayLabels.map((d, idx) => `<option value="${idx}">${d}</option>`).join('');
+  document.getElementById('card-id').value = id || '';
+  if (id) {
+    const item = cardsCache.find(c => c.id === id);
+    document.getElementById('card-modal-title').textContent = 'カードを編集';
+    daySelect.value = item.dayIdx;
+    document.getElementById('card-type').value = item.type;
+    document.getElementById('card-time').value = item.time || '';
+    document.getElementById('card-title').value = item.title;
+    document.getElementById('card-detail').value = item.detail || '';
+    document.getElementById('card-pnr').value = item.pnr || '';
+    document.getElementById('card-status').value = item.status;
+  } else {
+    document.getElementById('card-modal-title').textContent = '新しいカードを追加';
+    daySelect.value = presetDayIdx;
+  }
+  toggleFormFields();
+  document.getElementById('card-modal').classList.remove('hidden');
+}
+function closeCardModal() { document.getElementById('card-modal').classList.add('hidden'); }
+function toggleFormFields() {
+  document.getElementById('field-pnr').style.display = document.getElementById('card-type').value === 'flight' ? 'block' : 'none';
+}
+document.getElementById('card-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const id = document.getElementById('card-id').value;
+  const data = {
+    dayIdx: parseInt(document.getElementById('card-day-idx').value),
+    time: document.getElementById('card-time').value,
+    type: document.getElementById('card-type').value,
+    title: document.getElementById('card-title').value,
+    detail: document.getElementById('card-detail').value,
+    pnr: document.getElementById('card-pnr').value || null,
+    status: document.getElementById('card-status').value
+  };
+  if (id) { cardsCol.doc(id).update(data); }
+  else { data.origin = 'schedule'; cardsCol.add(data); }
+  closeCardModal();
+});
+
+// ==== 検討リスト ====
+function renderSpots() {
+  const spots = cardsCache.filter(c => c.origin === 'spot');
+  document.getElementById('spot-list').innerHTML = spots.map(s => {
+    const adopted = s.dayIdx !== null && s.dayIdx !== undefined;
+    return `
+    <div class="bg-white p-3 rounded-lg shadow-sm border border-slate-200">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">${s.city||''}</span>
+            <span class="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">${s.category||''}</span>
+            ${adopted ? `<span class="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">採用済み (${dayLabels[s.dayIdx]})</span>` : ''}
+          </div>
+          <h4 class="font-bold text-sm mt-1">${s.title}</h4>
+          ${s.memo ? `<p class="text-xs text-slate-500 mt-0.5">${s.memo}</p>` : ''}
+        </div>
+        <div class="flex flex-col items-end gap-1">
+          <div class="flex gap-1">
+            <button onclick='openSpotModal(${JSON.stringify(s.id)})' class="text-slate-300 hover:text-indigo-500 p-1"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+            <button onclick="deleteCard('${s.id}')" class="text-slate-300 hover:text-rose-500 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+          </div>
+          <button onclick='openAdoptModal(${JSON.stringify(s.id)})' class="text-[10px] font-bold px-2 py-1 rounded ${adopted ? 'bg-slate-100 text-slate-500' : 'bg-amber-500 text-white hover:bg-amber-600'}">${adopted ? '日程を変更' : 'タイムラインに採用'}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  lucide.createIcons();
+}
+document.getElementById('spot-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  cardsCol.add({
+    origin: 'spot', dayIdx: null,
+    city: document.getElementById('spot-city').value,
+    title: document.getElementById('spot-title').value,
+    category: document.getElementById('spot-category').value,
+    memo: document.getElementById('spot-memo').value,
+    type: 'activity', status: 'draft'
+  });
+  e.target.reset();
+});
+
+function openSpotModal(id) {
+  const s = cardsCache.find(c => c.id === id);
+  document.getElementById('spot-edit-id').value = id;
+  document.getElementById('spot-edit-city').value = s.city || '';
+  document.getElementById('spot-edit-title').value = s.title || '';
+  document.getElementById('spot-edit-category').value = s.category || 'アクティビティ';
+  document.getElementById('spot-edit-memo').value = s.memo || '';
+  document.getElementById('spot-modal').classList.remove('hidden');
+}
+function closeSpotModal() { document.getElementById('spot-modal').classList.add('hidden'); }
+document.getElementById('spot-edit-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const id = document.getElementById('spot-edit-id').value;
+  cardsCol.doc(id).update({
+    city: document.getElementById('spot-edit-city').value,
+    title: document.getElementById('spot-edit-title').value,
+    category: document.getElementById('spot-edit-category').value,
+    memo: document.getElementById('spot-edit-memo').value
+  });
+  closeSpotModal();
+});
+
+function openAdoptModal(id) {
+  const s = cardsCache.find(c => c.id === id);
+  document.getElementById('adopt-id').value = id;
+  const select = document.getElementById('adopt-day-idx');
+  select.innerHTML = dayLabels.map((d, idx) => `<option value="${idx}" ${s.dayIdx===idx?'selected':''}>${d}</option>`).join('');
+  document.getElementById('adopt-time').value = s.time || '';
+  document.getElementById('adopt-modal').classList.remove('hidden');
+}
+function closeAdoptModal() { document.getElementById('adopt-modal').classList.add('hidden'); }
+document.getElementById('adopt-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const id = document.getElementById('adopt-id').value;
+  cardsCol.doc(id).update({
+    dayIdx: parseInt(document.getElementById('adopt-day-idx').value),
+    time: document.getElementById('adopt-time').value
+  });
+  closeAdoptModal();
+});
+
+// ==== 立替計算 ====
+document.getElementById('expense-payer').innerHTML = members.map(m => `<option value="${m}">${m} (支払者)</option>`).join('');
+document.getElementById('expense-participants').innerHTML = members.map(m => `
+  <label class="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded"><input type="checkbox" value="${m}" checked class="expense-participant-cb"> ${m}</label>
+`).join('');
+
+document.getElementById('expense-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const participants = Array.from(document.querySelectorAll('.expense-participant-cb:checked')).map(cb => cb.value);
+  if (participants.length === 0) { alert('参加者を1人以上選んでください。'); return; }
+  expensesCol.add({
+    title: document.getElementById('expense-title').value,
+    amount: parseFloat(document.getElementById('expense-amount').value),
+    payer: document.getElementById('expense-payer').value,
+    participants,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  e.target.reset();
+  document.querySelectorAll('.expense-participant-cb').forEach(cb => cb.checked = true);
+});
+
+function renderExpenses() {
+  const list = document.getElementById('expense-list');
+  list.innerHTML = expensesCache.map(e => `
+    <li class="py-2 flex justify-between items-center">
+      <div>
+        <p class="font-bold text-slate-800">${e.title}</p>
+        <p class="text-xs text-slate-500"><span class="font-bold text-indigo-600">${e.payer}</span> が立替支払い（参加: ${e.participants.join('・')}）</p>
+      </div>
+      <span class="font-bold text-slate-700">¥${e.amount.toLocaleString()}</span>
+    </li>`).join('');
+
+  const resultContainer = document.getElementById('settlement-result');
+  if (expensesCache.length === 0) { resultContainer.innerHTML = `<p class="text-slate-400 text-xs">まだ立替記録がありません。</p>`; return; }
+
+  const paid = {}, owed = {};
+  members.forEach(m => { paid[m] = 0; owed[m] = 0; });
+  let total = 0;
+  expensesCache.forEach(e => {
+    total += e.amount;
+    paid[e.payer] += e.amount;
+    const share = e.amount / e.participants.length;
+    e.participants.forEach(p => owed[p] += share);
+  });
+  resultContainer.innerHTML = `
+    <p class="mb-2 text-xs text-slate-300 border-b border-slate-700 pb-1">総額: ¥${total.toLocaleString()}</p>
+    <div class="space-y-1 mt-1">
+      ${members.map(m => {
+        const diff = Math.round(paid[m] - owed[m]);
+        const status = diff >= 0 ? `<span class="text-emerald-400 font-bold">+¥${diff.toLocaleString()} (受領)</span>` : `<span class="text-rose-400 font-bold">-¥${Math.abs(diff).toLocaleString()} (支払)</span>`;
+        return `<div class="flex justify-between text-xs"><span>${m}:</span> <span>${status}</span></div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ==== タブ切り替え ====
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-btn').forEach(el => { el.classList.remove('text-indigo-600'); el.classList.add('text-slate-400'); });
+  document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+  document.getElementById(`nav-${tabName}`).classList.remove('text-slate-400');
+  document.getElementById(`nav-${tabName}`).classList.add('text-indigo-600');
+}
+
+lucide.createIcons();
+</script>
+</body>
+</html>
