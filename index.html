@@ -82,19 +82,9 @@
       <ul id="expense-list" class="divide-y text-sm"></ul>
     </div>
   </section>
-
-  <!-- Walica -->
-  <section id="tab-walica" class="tab-content hidden">
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center space-y-4">
-      <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto"><i data-lucide="external-link" class="w-6 h-6"></i></div>
-      <h2 class="text-lg font-bold">Walica（割り勘アプリ）</h2>
-      <p class="text-xs text-slate-600 leading-relaxed">現地の複数通貨（ユーロ/クローネ）や複雑な割り勘はWalicaの併用もおすすめです。</p>
-      <a href="https://walica.jp" target="_blank" rel="noopener noreferrer" class="inline-block bg-amber-500 text-white font-bold px-6 py-2.5 rounded-lg text-sm hover:bg-amber-600 shadow">Walicaを開く ↗</a>
-    </div>
-  </section>
 </main>
 
-<!-- カード追加/編集モーダル（タイムライン用） -->
+<!-- カード追加/編集モーダル（タイムライン） -->
 <div id="card-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
   <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3 max-h-[90vh] overflow-y-auto">
     <div class="flex justify-between items-center border-b pb-2">
@@ -104,21 +94,56 @@
     <form id="card-form" class="space-y-3">
       <input type="hidden" id="card-id">
       <div>
-        <label class="text-xs font-bold text-slate-500 block mb-1">対象の日付</label>
-        <select id="card-day-idx" class="w-full p-2 border rounded text-sm" required></select>
+        <label class="text-xs font-bold text-slate-500 block mb-1">対象の日付（出発日）</label>
+        <select id="card-day-idx" class="w-full p-2 border rounded text-sm" onchange="onDepartDayChange()" required></select>
       </div>
-      <div class="grid grid-cols-2 gap-2">
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">カード種別</label>
+        <select id="card-type" class="w-full p-2 border rounded text-sm" onchange="toggleFormFields()">
+          <option value="flight">✈️ 移動</option><option value="hotel">🏨 宿泊</option><option value="activity">📍 観光・予定</option>
+        </select>
+      </div>
+
+      <!-- 移動: サブ種別 -->
+      <div id="field-subtype">
+        <label class="text-xs font-bold text-slate-500 block mb-1">移動手段</label>
+        <select id="card-subtype" class="w-full p-2 border rounded text-sm">
+          <option value="airplane">✈️ 飛行機</option><option value="train">🚆 鉄道</option><option value="ship">⛴️ 船</option><option value="other">🚗 その他</option>
+        </select>
+      </div>
+
+      <!-- 移動: 出発/到着 -->
+      <div id="field-flight-times" class="grid grid-cols-2 gap-2">
         <div>
-          <label class="text-xs font-bold text-slate-500 block mb-1">カード種別</label>
-          <select id="card-type" class="w-full p-2 border rounded text-sm" onchange="toggleFormFields()">
-            <option value="flight">✈️ 移動</option><option value="hotel">🏨 宿泊</option><option value="activity">📍 観光・予定</option>
-          </select>
+          <label class="text-xs font-bold text-slate-500 block mb-1">出発時刻</label>
+          <input type="time" id="card-depart-time" class="w-full p-2 border rounded text-sm">
         </div>
         <div>
-          <label class="text-xs font-bold text-slate-500 block mb-1">時間</label>
-          <input type="time" id="card-time" class="w-full p-2 border rounded text-sm">
+          <label class="text-xs font-bold text-slate-500 block mb-1">到着日</label>
+          <select id="card-arrival-day-idx" class="w-full p-2 border rounded text-sm"></select>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs font-bold text-slate-500 block mb-1">到着時刻</label>
+          <input type="time" id="card-arrival-time" class="w-full p-2 border rounded text-sm">
         </div>
       </div>
+
+      <!-- 観光・予定: 開始時間 + 所要時間 -->
+      <div id="field-time">
+        <label class="text-xs font-bold text-slate-500 block mb-1">開始時間</label>
+        <input type="time" id="card-time" class="w-full p-2 border rounded text-sm">
+      </div>
+      <div id="field-duration" class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-1">所要時間（時間）</label>
+          <input type="number" min="0" id="card-duration-hours" class="w-full p-2 border rounded text-sm" placeholder="例: 2">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500 block mb-1">所要時間（分）</label>
+          <input type="number" min="0" max="59" id="card-duration-minutes" class="w-full p-2 border rounded text-sm" placeholder="例: 30">
+        </div>
+      </div>
+
       <div>
         <label class="text-xs font-bold text-slate-500 block mb-1">タイトル</label>
         <input type="text" id="card-title" class="w-full p-2 border rounded text-sm" required>
@@ -198,7 +223,6 @@
     <button onclick="switchTab('timeline')" id="nav-timeline" class="nav-btn text-indigo-600 flex flex-col items-center gap-0.5 text-[10px] font-bold"><i data-lucide="calendar" class="w-5 h-5"></i> タイムライン</button>
     <button onclick="switchTab('spots')" id="nav-spots" class="nav-btn text-slate-400 flex flex-col items-center gap-0.5 text-[10px] font-bold"><i data-lucide="map-pin" class="w-5 h-5"></i> 検討リスト</button>
     <button onclick="switchTab('expenses')" id="nav-expenses" class="nav-btn text-slate-400 flex flex-col items-center gap-0.5 text-[10px] font-bold"><i data-lucide="calculator" class="w-5 h-5"></i> 立替計算</button>
-    <button onclick="switchTab('walica')" id="nav-walica" class="nav-btn text-slate-400 flex flex-col items-center gap-0.5 text-[10px] font-bold"><i data-lucide="external-link" class="w-5 h-5"></i> Walica</button>
   </div>
 </nav>
 
@@ -225,42 +249,47 @@ const dayLabels = [
   "Day 9 : 2月18日 (水)","Day 10 : 2月19日 (木)","Day 11 : 2月20日 (金)","Day 12 : 2月21日 (土)",
   "Day 13 : 2月22日 (日)","Day 14 : 2月23日 (月)"
 ];
+const subtypeMeta = {
+  airplane: {emoji: '✈️', label: '飛行機'},
+  train: {emoji: '🚆', label: '鉄道'},
+  ship: {emoji: '⛴️', label: '船'},
+  other: {emoji: '🚗', label: 'その他'}
+};
 
 let cardsCache = [];
 let expensesCache = [];
 
-// ==== 初回シード ====
+// ==== 初回シード（既存データがある場合は何もしない） ====
 async function seedIfEmpty() {
   const snap = await cardsCol.limit(1).get();
   if (!snap.empty) return;
   const seedCards = [
-    {dayIdx:0,time:'21:55',type:'flight',title:'羽田 (HND) ➔ ヘルシンキ (HEL)',detail:'便名: AY062 (21:55発-04:40+1着)',pnr:'未入力',status:'confirmed',origin:'schedule'},
-    {dayIdx:0,time:'15:00',type:'hotel',title:'ヘルシンキ市内ホテル',detail:'チェックイン等詳細調整中',access:'中央駅周辺予定',status:'draft',origin:'schedule'},
-    {dayIdx:1,time:'07:30',type:'flight',title:'ヘルシンキ (HEL) ➔ ロヴァニエミ (RVN)',detail:'便名: AY545',pnr:'未入力',status:'confirmed',origin:'schedule'},
-    {dayIdx:1,time:'16:00',type:'hotel',title:'ロヴァニエミ宿泊',detail:'コテージ / ホテル検討中',status:'draft',origin:'schedule'},
-    {dayIdx:2,time:'10:00',type:'activity',title:'ロヴァニエミ市内・サンタクロース村観光',detail:'北極線通過・トナカイソリ体験など',status:'draft',origin:'schedule'},
-    {dayIdx:2,time:'15:00',type:'hotel',title:'ロヴァニエミ 2泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
+    {dayIdx:0,subtype:'airplane',departTime:'21:55',arrivalDayIdx:1,arrivalTime:'04:40',type:'flight',title:'羽田 (HND) ➔ ヘルシンキ (HEL)',detail:'便名: AY062',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:0,type:'hotel',title:'ヘルシンキ市内ホテル',detail:'チェックイン等詳細調整中',access:'中央駅周辺予定',status:'draft',origin:'schedule'},
+    {dayIdx:1,subtype:'airplane',departTime:'07:30',arrivalDayIdx:1,arrivalTime:'08:45',type:'flight',title:'ヘルシンキ (HEL) ➔ ロヴァニエミ (RVN)',detail:'便名: AY545',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:1,type:'hotel',title:'ロヴァニエミ宿泊',detail:'コテージ / ホテル検討中',status:'draft',origin:'schedule'},
+    {dayIdx:2,time:'10:00',durationHours:3,type:'activity',title:'ロヴァニエミ市内・サンタクロース村観光',detail:'北極線通過・トナカイソリ体験など',status:'draft',origin:'schedule'},
+    {dayIdx:2,type:'hotel',title:'ロヴァニエミ 2泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
     {dayIdx:3,time:'10:00',type:'activity',title:'ロヴァニエミ アクティビティ検討日',detail:'犬ソリ・スノーモービルなど',status:'draft',origin:'schedule'},
-    {dayIdx:3,time:'15:00',type:'hotel',title:'ロヴァニエミ 3泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
-    {dayIdx:4,time:'11:00',type:'flight',title:'ロヴァニエミ (RVN) ➔ トロムソ (TOS)',detail:'便名: AY541',pnr:'未入力',status:'confirmed',origin:'schedule'},
-    {dayIdx:4,time:'15:00',type:'hotel',title:'トロムソ宿泊',detail:'オーロラ観測拠点',status:'draft',origin:'schedule'},
-    {dayIdx:5,time:'19:00',type:'activity',title:'トロムソ オーロラハンティングツアー',detail:'夜間現地ツアー参加検討',status:'draft',origin:'schedule'},
-    {dayIdx:5,time:'15:00',type:'hotel',title:'トロムソ 2泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
-    {dayIdx:6,time:'08:00',type:'flight',title:'トロムソ (TOS) ➔ ベルゲン (BGO)',detail:'便名: WF623',pnr:'未入力',status:'confirmed',origin:'schedule'},
-    {dayIdx:6,time:'13:00',type:'flight',title:'ベルゲン ➔ ヴォス (Voss)',detail:'鉄道移動',status:'confirmed',origin:'schedule'},
-    {dayIdx:6,time:'16:00',type:'hotel',title:'ヴォス 1泊',detail:'フィヨルド観光前泊',access:'ヴォス駅徒歩圏内',status:'draft',origin:'schedule'},
-    {dayIdx:7,time:'09:00',type:'activity',title:'日中: フィヨルド観光',detail:'フェリー・バス周遊',status:'confirmed',origin:'schedule'},
-    {dayIdx:7,time:'16:00',type:'flight',title:'ヴォス ➔ オスロ (Oslo)',detail:'鉄道移動',status:'confirmed',origin:'schedule'},
-    {dayIdx:7,time:'20:00',type:'hotel',title:'オスロ宿泊',detail:'オスロ中央駅周辺',status:'draft',origin:'schedule'},
-    {dayIdx:8,time:'12:00',type:'flight',title:'オスロ (OSL) ➔ ストックホルム (ARN)',detail:'便名: SK1488',pnr:'未入力',status:'confirmed',origin:'schedule'},
-    {dayIdx:8,time:'15:00',type:'hotel',title:'ストックホルム宿泊',detail:'ガムラスタン周辺など',status:'draft',origin:'schedule'},
-    {dayIdx:9,time:'17:00',type:'flight',title:'ストックホルム ➔ ヘルシンキ (夕方発・夜行フェリー)',detail:'翌10:30 ヘルシンキ着予定',pnr:'未入力',status:'confirmed',origin:'schedule'},
-    {dayIdx:9,time:'18:00',type:'hotel',title:'船内泊 (フェリーキャビン)',detail:'翌10:30 ヘルシンキ着予定',status:'confirmed',origin:'schedule'},
+    {dayIdx:3,type:'hotel',title:'ロヴァニエミ 3泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
+    {dayIdx:4,subtype:'airplane',departTime:'11:00',arrivalDayIdx:4,arrivalTime:'12:05',type:'flight',title:'ロヴァニエミ (RVN) ➔ トロムソ (TOS)',detail:'便名: AY541',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:4,type:'hotel',title:'トロムソ宿泊',detail:'オーロラ観測拠点',status:'draft',origin:'schedule'},
+    {dayIdx:5,time:'19:00',durationHours:3,type:'activity',title:'トロムソ オーロラハンティングツアー',detail:'夜間現地ツアー参加検討',status:'draft',origin:'schedule'},
+    {dayIdx:5,type:'hotel',title:'トロムソ 2泊目',detail:'連泊予定',status:'draft',origin:'schedule'},
+    {dayIdx:6,subtype:'airplane',departTime:'08:00',arrivalDayIdx:6,arrivalTime:'08:50',type:'flight',title:'トロムソ (TOS) ➔ ベルゲン (BGO)',detail:'便名: WF623',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:6,subtype:'train',departTime:'13:00',arrivalDayIdx:6,arrivalTime:'14:30',type:'flight',title:'ベルゲン ➔ ヴォス (Voss)',detail:'鉄道移動',status:'confirmed',origin:'schedule'},
+    {dayIdx:6,type:'hotel',title:'ヴォス 1泊',detail:'フィヨルド観光前泊',access:'ヴォス駅徒歩圏内',status:'draft',origin:'schedule'},
+    {dayIdx:7,time:'09:00',durationHours:6,type:'activity',title:'日中: フィヨルド観光',detail:'フェリー・バス周遊',status:'confirmed',origin:'schedule'},
+    {dayIdx:7,subtype:'train',departTime:'16:00',arrivalDayIdx:7,arrivalTime:'19:30',type:'flight',title:'ヴォス ➔ オスロ (Oslo)',detail:'鉄道移動',status:'confirmed',origin:'schedule'},
+    {dayIdx:7,type:'hotel',title:'オスロ宿泊',detail:'オスロ中央駅周辺',status:'draft',origin:'schedule'},
+    {dayIdx:8,subtype:'airplane',departTime:'12:00',arrivalDayIdx:8,arrivalTime:'13:10',type:'flight',title:'オスロ (OSL) ➔ ストックホルム (ARN)',detail:'便名: SK1488',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:8,type:'hotel',title:'ストックホルム宿泊',detail:'ガムラスタン周辺など',status:'draft',origin:'schedule'},
+    {dayIdx:9,subtype:'ship',departTime:'17:00',arrivalDayIdx:10,arrivalTime:'10:30',type:'flight',title:'ストックホルム ➔ ヘルシンキ (夜行フェリー)',detail:'船内泊、翌10:30 ヘルシンキ着予定',pnr:'未入力',status:'confirmed',origin:'schedule'},
     {dayIdx:10,time:'10:30',type:'activity',title:'ヘルシンキ到着・市街散策',detail:'カフェ・サウナ巡り',status:'draft',origin:'schedule'},
-    {dayIdx:10,time:'15:00',type:'hotel',title:'ヘルシンキ宿泊',detail:'市内中心部',status:'draft',origin:'schedule'},
+    {dayIdx:10,type:'hotel',title:'ヘルシンキ宿泊',detail:'市内中心部',status:'draft',origin:'schedule'},
     {dayIdx:11,time:'09:00',type:'activity',title:'ヘルシンキ ➔ タリン (日帰りの可能性あり・未確定)',detail:'タリンクシリヤ / エッケローライン',status:'draft',origin:'schedule'},
-    {dayIdx:11,time:'15:00',type:'hotel',title:'ヘルシンキ 2泊目',detail:'最終滞在拠点',status:'draft',origin:'schedule'},
-    {dayIdx:12,time:'17:30',type:'flight',title:'ヘルシンキ (HEL) ➔ 羽田 (HND)',detail:'便名: AY061 (帰国便)',pnr:'未入力',status:'confirmed',origin:'schedule'},
+    {dayIdx:11,type:'hotel',title:'ヘルシンキ 2泊目',detail:'最終滞在拠点',status:'draft',origin:'schedule'},
+    {dayIdx:12,subtype:'airplane',departTime:'17:30',arrivalDayIdx:12,arrivalTime:'11:40',type:'flight',title:'ヘルシンキ (HEL) ➔ 羽田 (HND)',detail:'便名: AY061 (帰国便)',pnr:'未入力',status:'confirmed',origin:'schedule'},
     {dayIdx:13,time:'15:55',type:'activity',title:'羽田空港 到着・解散',detail:'お疲れ様でした！',status:'confirmed',origin:'schedule'},
     {dayIdx:null,type:'activity',title:'ロウリュ (Löyly)',city:'ヘルシンキ',category:'サウナ',memo:'海に飛び込める公衆サウナ',status:'draft',origin:'spot'},
     {dayIdx:null,type:'activity',title:'サンタクロース村',city:'ロヴァニエミ',category:'観光',memo:'北極線通過証明書がもらえる',status:'draft',origin:'spot'},
@@ -290,7 +319,14 @@ seedIfEmpty();
 function renderTimeline() {
   const container = document.getElementById('timeline-list');
   container.innerHTML = dayLabels.map((label, dayIdx) => {
-    const items = cardsCache.filter(c => c.dayIdx === dayIdx).sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+    const dayItems = cardsCache.filter(c => c.dayIdx === dayIdx);
+    const hotelItems = dayItems.filter(c => c.type === 'hotel');
+    const others = dayItems.filter(c => c.type !== 'hotel').sort((a, b) => {
+      const ta = a.type === 'flight' ? (a.departTime || '99:99') : (a.time || '99:99');
+      const tb = b.type === 'flight' ? (b.departTime || '99:99') : (b.time || '99:99');
+      return ta.localeCompare(tb);
+    });
+    const items = [...others, ...hotelItems];
     return `
       <div>
         <div class="bg-indigo-900 text-white font-bold text-xs px-3 py-1.5 rounded-t-lg flex justify-between items-center">
@@ -305,13 +341,37 @@ function renderTimeline() {
   lucide.createIcons();
 }
 
+function formatDuration(item) {
+  const h = item.durationHours || 0, m = item.durationMinutes || 0;
+  if (!h && !m) return '';
+  let s = '所要時間: ';
+  if (h) s += `${h}時間`;
+  if (m) s += `${m}分`;
+  return s;
+}
+
 function renderItemCard(item) {
   const isDraft = item.status === 'draft';
-  const timeBadge = item.time ? `<span class="bg-slate-100 text-slate-600 text-[10px] font-mono px-1.5 py-0.5 rounded font-bold">${item.time}</span>` : '';
   const badgeHtml = isDraft ? `<span class="bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded">⚠️ 仮</span>` : `<span class="bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold px-1.5 py-0.5 rounded">✓ 確定</span>`;
-  let colorClass = 'border-blue-500 bg-blue-50/40', iconName = 'plane', typeLabel = '移動';
-  if (item.type === 'hotel') { colorClass = 'border-emerald-500 bg-emerald-50/40'; iconName = 'hotel'; typeLabel = '宿泊'; }
-  else if (item.type === 'activity') { colorClass = 'border-purple-500 bg-purple-50/40'; iconName = 'map-pin'; typeLabel = '観光・予定'; }
+  let colorClass = 'border-blue-500 bg-blue-50/40', iconName = 'plane', typeLabel = '移動', timeBadge = '';
+
+  if (item.type === 'hotel') {
+    colorClass = 'border-emerald-500 bg-emerald-50/40'; iconName = 'hotel'; typeLabel = '宿泊';
+  } else if (item.type === 'activity') {
+    colorClass = 'border-purple-500 bg-purple-50/40'; iconName = 'map-pin'; typeLabel = '観光・予定';
+    timeBadge = item.time ? `<span class="bg-slate-100 text-slate-600 text-[10px] font-mono px-1.5 py-0.5 rounded font-bold">${item.time}</span>` : '';
+  } else if (item.type === 'flight') {
+    const meta = subtypeMeta[item.subtype] || subtypeMeta.other;
+    typeLabel = `${meta.emoji} ${meta.label}`;
+    timeBadge = item.departTime ? `<span class="bg-slate-100 text-slate-600 text-[10px] font-mono px-1.5 py-0.5 rounded font-bold">${item.departTime}発</span>` : '';
+  }
+
+  const arrivalInfo = item.type === 'flight' && (item.arrivalTime || (item.arrivalDayIdx !== undefined && item.arrivalDayIdx !== item.dayIdx))
+    ? `<p class="text-[11px] text-slate-500 mt-0.5">到着: ${item.arrivalDayIdx !== item.dayIdx && item.arrivalDayIdx !== undefined ? dayLabels[item.arrivalDayIdx] + ' ' : ''}${item.arrivalTime || ''}</p>`
+    : '';
+  const durationInfo = item.type === 'activity' && formatDuration(item)
+    ? `<p class="text-[11px] text-slate-500 mt-0.5">${formatDuration(item)}</p>` : '';
+
   return `
     <div class="border-l-4 ${colorClass} pl-3 py-1.5 rounded-r">
       <div class="flex justify-between items-start">
@@ -324,6 +384,8 @@ function renderItemCard(item) {
       </div>
       <p class="font-bold text-sm mt-1">${item.title}</p>
       ${item.detail ? `<p class="text-xs text-slate-600 mt-0.5">${item.detail}</p>` : ''}
+      ${arrivalInfo}
+      ${durationInfo}
       ${item.pnr ? `<p class="text-[11px] text-slate-400 mt-0.5">予約番号: ${item.pnr}</p>` : ''}
       ${item.access ? `<p class="text-[11px] text-slate-500 mt-0.5">📍 ${item.access}</p>` : ''}
     </div>`;
@@ -335,17 +397,36 @@ function deleteCard(id) {
 }
 
 // ==== カード追加/編集モーダル（タイムライン） ====
+function onDepartDayChange() {
+  const arrivalSelect = document.getElementById('card-arrival-day-idx');
+  if (arrivalSelect.dataset.touched !== 'true') {
+    arrivalSelect.value = document.getElementById('card-day-idx').value;
+  }
+}
+
 function openCardModal(origin, id = null, presetDayIdx = 0) {
   document.getElementById('card-form').reset();
   const daySelect = document.getElementById('card-day-idx');
-  daySelect.innerHTML = dayLabels.map((d, idx) => `<option value="${idx}">${d}</option>`).join('');
+  const arrivalSelect = document.getElementById('card-arrival-day-idx');
+  const dayOptions = dayLabels.map((d, idx) => `<option value="${idx}">${d}</option>`).join('');
+  daySelect.innerHTML = dayOptions;
+  arrivalSelect.innerHTML = dayOptions;
+  arrivalSelect.dataset.touched = 'false';
   document.getElementById('card-id').value = id || '';
+
   if (id) {
     const item = cardsCache.find(c => c.id === id);
     document.getElementById('card-modal-title').textContent = 'カードを編集';
     daySelect.value = item.dayIdx;
     document.getElementById('card-type').value = item.type;
+    document.getElementById('card-subtype').value = item.subtype || 'airplane';
+    document.getElementById('card-depart-time').value = item.departTime || '';
+    arrivalSelect.value = item.arrivalDayIdx !== undefined && item.arrivalDayIdx !== null ? item.arrivalDayIdx : item.dayIdx;
+    arrivalSelect.dataset.touched = 'true';
+    document.getElementById('card-arrival-time').value = item.arrivalTime || '';
     document.getElementById('card-time').value = item.time || '';
+    document.getElementById('card-duration-hours').value = item.durationHours || '';
+    document.getElementById('card-duration-minutes').value = item.durationMinutes || '';
     document.getElementById('card-title').value = item.title;
     document.getElementById('card-detail').value = item.detail || '';
     document.getElementById('card-pnr').value = item.pnr || '';
@@ -353,26 +434,48 @@ function openCardModal(origin, id = null, presetDayIdx = 0) {
   } else {
     document.getElementById('card-modal-title').textContent = '新しいカードを追加';
     daySelect.value = presetDayIdx;
+    arrivalSelect.value = presetDayIdx;
   }
   toggleFormFields();
   document.getElementById('card-modal').classList.remove('hidden');
 }
 function closeCardModal() { document.getElementById('card-modal').classList.add('hidden'); }
+
 function toggleFormFields() {
-  document.getElementById('field-pnr').style.display = document.getElementById('card-type').value === 'flight' ? 'block' : 'none';
+  const type = document.getElementById('card-type').value;
+  document.getElementById('field-subtype').style.display = type === 'flight' ? 'block' : 'none';
+  document.getElementById('field-flight-times').style.display = type === 'flight' ? 'grid' : 'none';
+  document.getElementById('field-pnr').style.display = type === 'flight' ? 'block' : 'none';
+  document.getElementById('field-time').style.display = type === 'activity' ? 'block' : 'none';
+  document.getElementById('field-duration').style.display = type === 'activity' ? 'grid' : 'none';
 }
+
+document.getElementById('card-arrival-day-idx').addEventListener('change', (e) => { e.target.dataset.touched = 'true'; });
+
 document.getElementById('card-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const id = document.getElementById('card-id').value;
+  const type = document.getElementById('card-type').value;
   const data = {
     dayIdx: parseInt(document.getElementById('card-day-idx').value),
-    time: document.getElementById('card-time').value,
-    type: document.getElementById('card-type').value,
+    type,
     title: document.getElementById('card-title').value,
     detail: document.getElementById('card-detail').value,
-    pnr: document.getElementById('card-pnr').value || null,
-    status: document.getElementById('card-status').value
+    status: document.getElementById('card-status').value,
+    subtype: null, time: null, durationHours: null, durationMinutes: null,
+    departTime: null, arrivalDayIdx: null, arrivalTime: null, pnr: null
   };
+  if (type === 'flight') {
+    data.subtype = document.getElementById('card-subtype').value;
+    data.departTime = document.getElementById('card-depart-time').value;
+    data.arrivalDayIdx = parseInt(document.getElementById('card-arrival-day-idx').value);
+    data.arrivalTime = document.getElementById('card-arrival-time').value;
+    data.pnr = document.getElementById('card-pnr').value || null;
+  } else if (type === 'activity') {
+    data.time = document.getElementById('card-time').value;
+    data.durationHours = document.getElementById('card-duration-hours').value ? parseInt(document.getElementById('card-duration-hours').value) : null;
+    data.durationMinutes = document.getElementById('card-duration-minutes').value ? parseInt(document.getElementById('card-duration-minutes').value) : null;
+  }
   if (id) { cardsCol.doc(id).update(data); }
   else { data.origin = 'schedule'; cardsCol.add(data); }
   closeCardModal();
@@ -482,6 +585,11 @@ document.getElementById('expense-form').addEventListener('submit', (e) => {
   document.querySelectorAll('.expense-participant-cb').forEach(cb => cb.checked = true);
 });
 
+function deleteExpense(id) {
+  if (!confirm('この立替記録を削除してよろしいですか？')) return;
+  expensesCol.doc(id).delete();
+}
+
 function renderExpenses() {
   const list = document.getElementById('expense-list');
   list.innerHTML = expensesCache.map(e => `
@@ -490,8 +598,12 @@ function renderExpenses() {
         <p class="font-bold text-slate-800">${e.title}</p>
         <p class="text-xs text-slate-500"><span class="font-bold text-indigo-600">${e.payer}</span> が立替支払い（参加: ${e.participants.join('・')}）</p>
       </div>
-      <span class="font-bold text-slate-700">¥${e.amount.toLocaleString()}</span>
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-slate-700">¥${e.amount.toLocaleString()}</span>
+        <button onclick="deleteExpense('${e.id}')" class="text-slate-300 hover:text-rose-500 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+      </div>
     </li>`).join('');
+  lucide.createIcons();
 
   const resultContainer = document.getElementById('settlement-result');
   if (expensesCache.length === 0) { resultContainer.innerHTML = `<p class="text-slate-400 text-xs">まだ立替記録がありません。</p>`; return; }
